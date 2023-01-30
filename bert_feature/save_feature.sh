@@ -1,1 +1,0 @@
-CUDA_VISIBLE_DEVICES='0' python -W ignore save_feature.py --output_dir="model_save_feature" --train_batch_size=1 --learning_rate=5e-3 --l2=0.01 --num_train_epochs=1 --eval_batch_size=1 --seed=2019 --do_lower_case --num_train_samples=11678 --task="essay" --warmup_proportion=0.1 --bert_model="bert-base-uncased" --max_seq_length=512 --do_train --do_test --data_dir="essay_data/"
