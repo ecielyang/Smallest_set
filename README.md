@@ -7,4 +7,8 @@ Official implementation for the paper " How Many and Which Training Points Would
 ```
 python SST.py
 ```
-3. Other dataset information is provided in the ```data_links``` file.
+3. To run the algorithm for the ```SST``` feature extracted from BERT, you can use the command:
+```
+python SST_bert.py
+```
+4. Other dataset information is provided in the ```data_links``` file.
