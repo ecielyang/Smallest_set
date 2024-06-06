@@ -33,10 +33,6 @@ def inverse_hessian(H):
     return np.linalg.inv(H)
 
 def Remove(X, y, k, scores, test_idx, pred, thresh):
-    # print("test_idx", test_idx)
-    # print("old")
-    # print(pred[test_idx])
-
     if pred[test_idx] > thresh:
         top_k_index = scores[test_idx].argsort()[-k:]
     else:
@@ -74,19 +70,14 @@ def new_train(X, y, l2, k, dev_index, scores, thresh, pred):
     return new
 
 
-# In[4]:
-
-
-
-# In[60]:
 
 
 def recursive_NT(test_idx, old, X_0, y_0, model, l2, thresh, X_dist, I=100, D=1):
     eps = 1 / X_0["train"].shape[0]
-    X_l = X_0
-    y_l = y_0
-    X_r = X_0
-    y_r = y_0
+    X_l = X_0["train"]
+    y_l = y_0["train"]
+    X_r = X_0["train"]
+    y_r = y_0["train"]
     # Compute IP
     F_dev = np.concatenate([X_0["dev"], np.ones((X_0["dev"].shape[0], 1))], axis=1)
     new_hessain = hessian_(X_l, model, l2)
@@ -96,7 +87,7 @@ def recursive_NT(test_idx, old, X_0, y_0, model, l2, thresh, X_dist, I=100, D=1)
     grad_f = F_dev[test_idx] * (old * (1 - old))
     delta_pred = grad_f @ delta_k
 
-    K_new = y_0.shape[0]
+    K_new = y_0["train"].shape[0]
     predicted_change_new = None
     ite = 0
     diff = K_new - 0
@@ -115,8 +106,6 @@ def recursive_NT(test_idx, old, X_0, y_0, model, l2, thresh, X_dist, I=100, D=1)
 
 
             if ((old < thresh) != (old + predicted_change < thresh)):
-                # print("K", k)
-
                 diff = K_new - k
                 K_new = k
                 predicted_change_new = predicted_change
@@ -130,8 +119,8 @@ def recursive_NT(test_idx, old, X_0, y_0, model, l2, thresh, X_dist, I=100, D=1)
                 X_r = X_r[top_k_index]
                 y_r = y_r[top_k_index]
 
-                X_l = np.delete(X_0, index_whole, axis=0)
-                y_l = np.delete(y_0, index_whole, axis=0)
+                X_l = np.delete(X_0["train"], index_whole, axis=0)
+                y_l = np.delete(y_0["train"], index_whole, axis=0)
                 # print("removed shape", X_r.shape)
                 # print("left shape", X_l.shape)
 
@@ -147,7 +136,7 @@ def recursive_NT(test_idx, old, X_0, y_0, model, l2, thresh, X_dist, I=100, D=1)
                 break
 
             if k == y_r.shape[0] - 1:
-                if K_new == y_0.shape[0] and diff == y_0.shape[0]:
+                if K_new == y_0["train"].shape[0] and diff == y_0["train"].shape[0]:
                     return None, predicted_change_new, ite, None, []
 
                 return K_new, predicted_change_new, ite, diff, index_whole
@@ -156,13 +145,13 @@ def recursive_NT(test_idx, old, X_0, y_0, model, l2, thresh, X_dist, I=100, D=1)
 
 
 
-def IP_iterative(l2, X, y, dataname, thresh):
-    model = LogisticRegression(penalty='l2', C=l2)
+def IP_iterative(X, y, l2, dataname, thresh):
+    model = LogisticRegression(penalty='l2', C=1/l2)
     model.fit(X["train"], y["train"])
     model.score(X["dev"], y["dev"])
 
     # compute IP for new train
-    from sklearn.preprocessing import normalize
+    #from sklearn.preprocessing import normalize
     w = np.concatenate((model.coef_, model.intercept_[None, :]), axis=1)
     F_train = np.concatenate([X["train"], np.ones((X["train"].shape[0], 1))], axis=1) # Concatenating one to calculate the gradient with respect to intercept
     F_dev = np.concatenate([X["dev"], np.ones((X["dev"].shape[0], 1))], axis=1)
@@ -173,9 +162,8 @@ def IP_iterative(l2, X, y, dataname, thresh):
     gradient_train = F_train * error_train[:, None]
     gradient_dev = F_dev * error_dev[:, None]
 
-    from scipy import sparse
     probs = model.predict_proba(X["train"])[:, 1]
-    H = F_train.T @ np.diag(probs * (1 - probs)) @ F_train / X["train"].shape[0] + 1 * np.eye(F_train.shape[1]) / X["train"].shape[0]
+    H = F_train.T @ np.diag(probs * (1 - probs)) @ F_train / X["train"].shape[0] + l2 * np.eye(F_train.shape[1]) / X["train"].shape[0]
     H_inv = np.linalg.inv(H)
 
     eps = 1 / X["train"].shape[0]
@@ -183,10 +171,6 @@ def IP_iterative(l2, X, y, dataname, thresh):
     pred = np.reshape(model.predict_proba(X["dev"])[:, 1], (model.predict_proba(X["dev"])[:, 1].shape[0], 1))
     grad_f = F_dev * (pred * (1 - pred))
     delta_pred = grad_f @ delta_k
-
-
-    # In[46]:
-
 
     X_dist = {}
     for i in range(X["train"].shape[0]):
@@ -204,7 +188,7 @@ def IP_iterative(l2, X, y, dataname, thresh):
 
         old = pred[test_idx].item()
         print("old", old)
-        K_nt, pred_change_nt, ite, diff, order= recursive_NT(test_idx, old, X["train"], y["train"], model, l2, thresh, X_dist, I=100, D=1)
+        K_nt, pred_change_nt, ite, diff, order= recursive_NT(test_idx, old, X, y, model, l2, thresh, X_dist, I=100, D=1)
 
         if pred_change_nt != None:
             new_nt = new_train(X, y, l2, K_nt, test_idx, delta_pred, thresh, pred)
@@ -222,10 +206,11 @@ def IP_iterative(l2, X, y, dataname, thresh):
         diffs.append(diff)
         order_lists.append(order)
 
-    np.save("NT_app_k_"+dataname+ "_LR_I100_D1.npy", NT_app_k)
-    np.save("new_predictions_"+dataname+ "_LR_I100_D1.npy", new_predictions)
-    np.save("iterations_"+dataname+ "_LR_I100_D1.npy", iterations)
-    np.save("diffs_"+dataname+ "_LR_I100_D1.npy", diffs)
-    np.save("order_"+dataname+ "_LR_I100_D1.npy", order_lists)
+    np.save("./results/NT_app_k_"+dataname+ "_alg2.npy", NT_app_k)
+    np.save("./results/new_predictions_"+dataname+ "_alg2.npy", new_predictions)
+    np.save("./results/old_predictions_" + dataname + "_alg2.npy", pred)
+    np.save("./results/iterations_"+dataname+ "_alg2.npy", iterations)
+    np.save("./results/diffs_"+dataname+ "_alg2.npy", diffs)
+    #np.save("./results/order_"+dataname+ "_alg2.npy", order_lists)
 
 

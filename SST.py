@@ -3,6 +3,10 @@ from Smallest_k import IP
 import numpy as np
 from tqdm import tqdm
 import spacy
+import warnings
+from sklearn.linear_model import LogisticRegression
+from recursive import IP_iterative
+
 
 sst_dataset = {}
 for split in ["train", "dev", "test"]:
@@ -22,6 +26,10 @@ for split in ["train", "dev"]:
     y[split] = np.array([example["label"] for example in sst_dataset[split]])
 
 thresh = 0.5
-l2 = 1000
+l2 = 1
 
-IP(X, y, l2, "SST", thresh)
+# Algorithm 1
+# IP(X, y, l2, "SST", thresh)
+
+# Algorithm 2
+IP_iterative(X, y, l2, "SST", thresh)
